@@ -1,0 +1,12 @@
+node_modules/
+dist/
+DiffPalReviewV1/dist/
+DiffPalReviewDevV1/dist/
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.iml
