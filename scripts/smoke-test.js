@@ -205,10 +205,109 @@ function testInstructionsFileDirectoryFails() {
   assert(!fs.existsSync(diffpalArgv), "diffpal should not run when instructionsFile is a directory");
 }
 
+function testDefaultOutDirectoryIsIgnored() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-out-default-"));
+  const sourceDir = path.join(dir, "s");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("default out directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_OUT: sourceDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(!read(diffpalArgv).includes("--out"), "default out workspace directory should be ignored");
+}
+
+function testOutFilePathIsForwarded() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-out-file-"));
+  const sourceDir = path.join(dir, "s");
+  const outFile = path.join(sourceDir, ".artifacts", "diffpal", "review.json");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("out file", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_OUT: outFile,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(read(diffpalArgv).includes(`--out\n${outFile}`), "out file path should be forwarded");
+}
+
+function testOutDirectoryFails() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-out-dir-"));
+  const sourceDir = path.join(dir, "s");
+  const outDir = path.join(sourceDir, ".artifacts");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(outDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  const result = runHandlerExpectFailure("out directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_OUT: outDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(result.stdout.includes("out must point to a file path, not a directory"), "directory failure should explain out validation");
+  assert(!fs.existsSync(diffpalArgv), "diffpal should not run when out is a directory");
+}
+
+function testDefaultConfigDirDirectoryIsIgnored() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-config-default-"));
+  const sourceDir = path.join(dir, "s");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("default configDir directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_CONFIGDIR: sourceDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(!read(diffpalArgv).includes("--config-dir"), "default configDir workspace directory should be ignored");
+}
+
+function testConfigDirDirectoryIsForwarded() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-config-dir-"));
+  const sourceDir = path.join(dir, "s");
+  const configDir = path.join(sourceDir, ".config", "diffpal");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(configDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("configDir directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_CONFIGDIR: configDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(read(diffpalArgv).includes(`--config-dir\n${configDir}`), "configDir directory should be forwarded");
+}
+
 testDefaultInstall();
 testCustomPathSkipsInstall();
 testInstallDisabledUsesPath();
 testDefaultInstructionsFileDirectoryIsIgnored();
 testInstructionsFileIsForwarded();
 testInstructionsFileDirectoryFails();
+testDefaultOutDirectoryIsIgnored();
+testOutFilePathIsForwarded();
+testOutDirectoryFails();
+testDefaultConfigDirDirectoryIsIgnored();
+testConfigDirDirectoryIsForwarded();
 console.log("Azure DevOps task smoke tests passed");

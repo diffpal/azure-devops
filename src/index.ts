@@ -40,28 +40,78 @@ function addOptional(args: string[], flag: string, value: string): void {
   }
 }
 
-function resolveInstructionsFile(value: string): string {
+function pathKind(filePath: string): string {
+  const stat = fs.statSync(filePath);
+  if (stat.isFile()) {
+    return "file";
+  }
+  if (stat.isDirectory()) {
+    return "directory";
+  }
+  return "non-file path";
+}
+
+function suppliedPathInput(name: string, value: string): string {
   if (!value) {
     return "";
   }
 
-  if (!tl.filePathSupplied("instructionsFile")) {
-    tl.debug(`Ignoring default instructionsFile path: ${value}`);
+  if (!tl.filePathSupplied(name)) {
+    tl.debug(`Ignoring default ${name} path: ${value}`);
     return "";
   }
 
-  const resolved = path.resolve(value);
+  return value;
+}
+
+function resolveConfigDir(value: string): string {
+  const supplied = suppliedPathInput("configDir", value);
+  if (!supplied) {
+    return "";
+  }
+
+  const resolved = path.resolve(supplied);
   if (!fs.existsSync(resolved)) {
-    throw new Error(`instructionsFile must point to an existing file: ${value}`);
+    throw new Error(`configDir must point to an existing directory: ${supplied}`);
   }
 
-  const stat = fs.statSync(resolved);
-  if (stat.isFile()) {
-    return value;
+  if (!fs.statSync(resolved).isDirectory()) {
+    throw new Error(`configDir must point to a directory, not a ${pathKind(resolved)}: ${supplied}`);
   }
 
-  const kind = stat.isDirectory() ? "directory" : "non-file path";
-  throw new Error(`instructionsFile must point to a file, not a ${kind}: ${value}`);
+  return supplied;
+}
+
+function resolveInstructionsFile(value: string): string {
+  const supplied = suppliedPathInput("instructionsFile", value);
+  if (!supplied) {
+    return "";
+  }
+
+  const resolved = path.resolve(supplied);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`instructionsFile must point to an existing file: ${supplied}`);
+  }
+
+  if (fs.statSync(resolved).isFile()) {
+    return supplied;
+  }
+
+  throw new Error(`instructionsFile must point to a file, not a ${pathKind(resolved)}: ${supplied}`);
+}
+
+function resolveOut(value: string): string {
+  const supplied = suppliedPathInput("out", value);
+  if (!supplied) {
+    return "";
+  }
+
+  const resolved = path.resolve(supplied);
+  if (fs.existsSync(resolved) && fs.statSync(resolved).isDirectory()) {
+    throw new Error(`out must point to a file path, not a directory: ${supplied}`);
+  }
+
+  return supplied;
 }
 
 function boolInput(name: string, defaultValue: boolean): boolean {
@@ -162,7 +212,7 @@ async function run(): Promise<void> {
   const gate = tl.getBoolInput("gate", false);
 
   const args: string[] = [];
-  addOptional(args, "--config-dir", input("configDir"));
+  addOptional(args, "--config-dir", resolveConfigDir(input("configDir")));
   addOptional(args, "--profile", input("profile"));
   args.push("review", "ado", "--base", base, "--head", head, "--block-on", blockOn);
 
@@ -178,7 +228,7 @@ async function run(): Promise<void> {
   addOptional(args, "--review-checks", input("reviewChecks"));
   addOptional(args, "--instructions", input("instructions"));
   addOptional(args, "--instructions-file", resolveInstructionsFile(input("instructionsFile")));
-  addOptional(args, "--out", input("out"));
+  addOptional(args, "--out", resolveOut(input("out")));
   addOptional(args, "--repo", input("repo"));
   addOptional(args, "--review-id", input("reviewId"));
   addOptional(args, "--max-files", input("maxFiles"));
