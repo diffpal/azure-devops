@@ -38,6 +38,25 @@ function runHandler(name, env) {
   }
 }
 
+function runHandlerExpectFailure(name, env) {
+  const result = spawnSync(process.execPath, [handler], {
+    cwd: root,
+    env: {
+      ...process.env,
+      INPUT_BASE: "base-sha",
+      INPUT_HEAD: "head-sha",
+      INPUT_BLOCKON: "high",
+      INPUT_FEEDBACK: "balanced",
+      ...env
+    },
+    encoding: "utf8"
+  });
+  if (result.status === 0) {
+    throw new Error(`${name} unexpectedly succeeded\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+  }
+  return result;
+}
+
 function read(file) {
   return fs.readFileSync(file, "utf8");
 }
@@ -128,7 +147,68 @@ function testInstallDisabledUsesPath() {
   assert(read(diffpalArgv).includes("review\nado"), "install=false did not run diffpal from PATH");
 }
 
+function testDefaultInstructionsFileDirectoryIsIgnored() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-instructions-default-"));
+  const sourceDir = path.join(dir, "s");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("default instructionsFile directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_INSTRUCTIONSFILE: sourceDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(!read(diffpalArgv).includes("--instructions-file"), "default instructionsFile workspace directory should be ignored");
+}
+
+function testInstructionsFileIsForwarded() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-instructions-file-"));
+  const sourceDir = path.join(dir, "s");
+  const instructionsFile = path.join(sourceDir, "instructions.md");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(sourceDir, { recursive: true });
+  fs.writeFileSync(instructionsFile, "review carefully\n");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("instructionsFile file", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_INSTRUCTIONSFILE: instructionsFile,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(read(diffpalArgv).includes(`--instructions-file\n${instructionsFile}`), "instructionsFile file should be forwarded");
+}
+
+function testInstructionsFileDirectoryFails() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-instructions-dir-"));
+  const sourceDir = path.join(dir, "s");
+  const instructionsDir = path.join(sourceDir, "docs");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  fs.mkdirSync(instructionsDir, { recursive: true });
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  const result = runHandlerExpectFailure("instructionsFile directory", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_INSTRUCTIONSFILE: instructionsDir,
+    BUILD_SOURCESDIRECTORY: sourceDir
+  });
+
+  assert(result.stdout.includes("instructionsFile must point to a file, not a directory"), "directory failure should explain instructionsFile validation");
+  assert(!fs.existsSync(diffpalArgv), "diffpal should not run when instructionsFile is a directory");
+}
+
 testDefaultInstall();
 testCustomPathSkipsInstall();
 testInstallDisabledUsesPath();
+testDefaultInstructionsFileDirectoryIsIgnored();
+testInstructionsFileIsForwarded();
+testInstructionsFileDirectoryFails();
 console.log("Azure DevOps task smoke tests passed");

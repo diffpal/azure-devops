@@ -40,6 +40,30 @@ function addOptional(args: string[], flag: string, value: string): void {
   }
 }
 
+function resolveInstructionsFile(value: string): string {
+  if (!value) {
+    return "";
+  }
+
+  if (!tl.filePathSupplied("instructionsFile")) {
+    tl.debug(`Ignoring default instructionsFile path: ${value}`);
+    return "";
+  }
+
+  const resolved = path.resolve(value);
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`instructionsFile must point to an existing file: ${value}`);
+  }
+
+  const stat = fs.statSync(resolved);
+  if (stat.isFile()) {
+    return value;
+  }
+
+  const kind = stat.isDirectory() ? "directory" : "non-file path";
+  throw new Error(`instructionsFile must point to a file, not a ${kind}: ${value}`);
+}
+
 function boolInput(name: string, defaultValue: boolean): boolean {
   const value = input(name).toLowerCase();
   if (!value) {
@@ -153,7 +177,7 @@ async function run(): Promise<void> {
   addOptional(args, "--language", input("language"));
   addOptional(args, "--review-checks", input("reviewChecks"));
   addOptional(args, "--instructions", input("instructions"));
-  addOptional(args, "--instructions-file", input("instructionsFile"));
+  addOptional(args, "--instructions-file", resolveInstructionsFile(input("instructionsFile")));
   addOptional(args, "--out", input("out"));
   addOptional(args, "--repo", input("repo"));
   addOptional(args, "--review-id", input("reviewId"));
