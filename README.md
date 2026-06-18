@@ -44,9 +44,9 @@ steps:
   - checkout: self
     fetchDepth: 0
 
-  - task: NodeTool@0
+  - task: UseNode@1
     inputs:
-      versionSpec: "22.x"
+      version: "22.x"
 
   - script: npm install --global @openai/codex@0.139.0 @normahq/codex-acp-bridge@1.6.3
     displayName: Install Codex provider
@@ -93,9 +93,9 @@ steps:
   - checkout: self
     fetchDepth: 0
 
-  - task: NodeTool@0
+  - task: UseNode@1
     inputs:
-      versionSpec: "22.x"
+      version: "22.x"
 
   - script: npm install --global @normahq/codex-acp-bridge@1.6.3
     displayName: Install Copilot bridge
