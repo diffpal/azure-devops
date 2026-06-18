@@ -26,6 +26,7 @@ function runHandler(name, env) {
       INPUT_HEAD: "head-sha",
       INPUT_BLOCKON: "high",
       INPUT_FEEDBACK: "balanced",
+      SYSTEM_ACCESSTOKEN: "system-token",
       ...env
     },
     encoding: "utf8"
@@ -47,6 +48,7 @@ function runHandlerExpectFailure(name, env) {
       INPUT_HEAD: "head-sha",
       INPUT_BLOCKON: "high",
       INPUT_FEEDBACK: "balanced",
+      SYSTEM_ACCESSTOKEN: "system-token",
       ...env
     },
     encoding: "utf8"
@@ -65,6 +67,33 @@ function makeFakeDiffPal(file, argvFile) {
   writeExecutable(file, `#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\\n' "$@" > "${argvFile}"
+`);
+}
+
+function makeFakeGit(file, argvFile, options = {}) {
+  const fetchExit = options.fetchExit ?? 0;
+  const fetchStderr = options.fetchStderr ?? "";
+  const mergeBaseExit = options.mergeBaseExit ?? 0;
+  const mergeBaseStdout = options.mergeBaseStdout ?? "merge-base-sha\n";
+  const mergeBaseStderr = options.mergeBaseStderr ?? "";
+  writeExecutable(file, `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$@" >> "${argvFile}"
+case "$1" in
+  fetch)
+    printf '%b' ${JSON.stringify(fetchStderr)} >&2
+    exit ${fetchExit}
+    ;;
+  merge-base)
+    printf '%b' ${JSON.stringify(mergeBaseStderr)} >&2
+    printf '%b' ${JSON.stringify(mergeBaseStdout)}
+    exit ${mergeBaseExit}
+    ;;
+  *)
+    echo "unexpected git command: $*" >&2
+    exit 2
+    ;;
+esac
 `);
 }
 
@@ -299,6 +328,153 @@ function testConfigDirDirectoryIsForwarded() {
   assert(read(diffpalArgv).includes(`--config-dir\n${configDir}`), "configDir directory should be forwarded");
 }
 
+function testNonPrRunFailsWithoutExplicitRange() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-non-pr-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  const result = runHandlerExpectFailure("non PR run", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_BASE: "",
+    INPUT_HEAD: ""
+  });
+
+  assert(result.stdout.includes("requires an Azure pull request build"), "non-PR failure should explain PR validation requirement");
+  assert(!fs.existsSync(diffpalArgv), "diffpal should not run outside PR context without explicit base/head");
+}
+
+function testMissingTokenFailsBeforeCli() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-missing-token-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  const result = runHandlerExpectFailure("missing token", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    SYSTEM_ACCESSTOKEN: "",
+    AZURE_DEVOPS_EXT_PAT: ""
+  });
+
+  assert(result.stdout.includes("SYSTEM_ACCESSTOKEN is required"), "missing token failure should explain OAuth setup");
+  assert(!fs.existsSync(diffpalArgv), "diffpal should not run without Azure feedback token");
+}
+
+function testPrContextComputesMergeBase() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-pr-range-"));
+  const fakeBin = path.join(dir, "bin");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const gitArgv = path.join(dir, "git-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+  makeFakeGit(path.join(fakeBin, "git"), gitArgv, { mergeBaseStdout: "merge-base-sha\n" });
+
+  runHandler("PR merge-base", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_BASE: "",
+    INPUT_HEAD: "",
+    SYSTEM_PULLREQUEST_PULLREQUESTID: "123",
+    SYSTEM_PULLREQUEST_SOURCEBRANCH: "refs/heads/feature",
+    SYSTEM_PULLREQUEST_TARGETBRANCH: "refs/heads/main",
+    SYSTEM_PULLREQUEST_SOURCECOMMITID: "source-sha",
+    SYSTEM_PULLREQUEST_TARGETCOMMITID: "target-sha",
+    PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
+  });
+
+  const gitArgs = read(gitArgv);
+  assert(gitArgs.includes("fetch\n--no-tags\norigin\n+refs/heads/main:refs/remotes/origin/main"), "target branch should be fetched before merge-base");
+  assert(gitArgs.includes("merge-base\norigin/main\nsource-sha"), "merge-base should use fetched target and source commit");
+  assert(read(diffpalArgv).includes("--base\nmerge-base-sha\n--head\nsource-sha"), "diffpal should use merge-base and source commit");
+}
+
+function testExplicitRangeBypassesGitResolution() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-explicit-range-"));
+  const fakeBin = path.join(dir, "bin");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const gitArgv = path.join(dir, "git-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+  makeFakeGit(path.join(fakeBin, "git"), gitArgv);
+
+  runHandler("explicit range", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
+  });
+
+  assert(!fs.existsSync(gitArgv), "explicit base/head should not run git resolution");
+  assert(read(diffpalArgv).includes("--base\nbase-sha\n--head\nhead-sha"), "explicit base/head should be forwarded");
+}
+
+function testMissingTargetRefExplainsFetchFailure() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-fetch-fail-"));
+  const fakeBin = path.join(dir, "bin");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+  makeFakeGit(path.join(fakeBin, "git"), path.join(dir, "git-argv"), {
+    fetchExit: 128,
+    fetchStderr: "fatal: couldn't find remote ref refs/heads/main\n"
+  });
+
+  const result = runHandlerExpectFailure("fetch target failure", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_BASE: "",
+    INPUT_HEAD: "",
+    SYSTEM_PULLREQUEST_PULLREQUESTID: "123",
+    SYSTEM_PULLREQUEST_TARGETBRANCH: "refs/heads/main",
+    SYSTEM_PULLREQUEST_SOURCECOMMITID: "source-sha",
+    PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
+  });
+
+  assert(result.stdout.includes("Unable to fetch Azure PR target ref refs/heads/main"), "fetch failure should name target ref");
+  assert(result.stdout.includes("fetchDepth: 0"), "fetch failure should mention checkout depth guidance");
+  assert(!fs.existsSync(diffpalArgv), "diffpal should not run after target fetch failure");
+}
+
+function testExplainPrintsResolvedContext() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-explain-"));
+  const fakeBin = path.join(dir, "bin");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+  makeFakeGit(path.join(fakeBin, "git"), path.join(dir, "git-argv"), { mergeBaseStdout: "merge-base-sha\n" });
+
+  const result = spawnSync(process.execPath, [handler], {
+    cwd: root,
+    env: {
+      ...process.env,
+      INPUT_INSTALL: "false",
+      INPUT_DIFFPALPATH: customDiffPal,
+      INPUT_BASE: "",
+      INPUT_HEAD: "",
+      INPUT_BLOCKON: "high",
+      INPUT_FEEDBACK: "balanced",
+      INPUT_EXPLAIN: "true",
+      SYSTEM_ACCESSTOKEN: "secret-token-value",
+      SYSTEM_PULLREQUEST_PULLREQUESTID: "123",
+      SYSTEM_PULLREQUEST_SOURCEBRANCH: "refs/heads/feature",
+      SYSTEM_PULLREQUEST_TARGETBRANCH: "refs/heads/main",
+      SYSTEM_PULLREQUEST_SOURCECOMMITID: "source-sha",
+      PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
+    },
+    encoding: "utf8"
+  });
+
+  if (result.status !== 0) {
+    throw new Error(`explain failed with ${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+  }
+  assert(result.stdout.includes("DiffPal Azure task explain:"), "explain output should be printed");
+  assert(result.stdout.includes("PR id: 123"), "explain output should include PR id");
+  assert(result.stdout.includes("merge-base: merge-base-sha"), "explain output should include merge-base");
+  assert(result.stdout.includes("final CLI args:"), "explain output should include CLI args");
+  assert(!result.stdout.includes("secret-token-value"), "explain output should redact secrets");
+}
+
 testDefaultInstall();
 testCustomPathSkipsInstall();
 testInstallDisabledUsesPath();
@@ -310,4 +486,10 @@ testOutFilePathIsForwarded();
 testOutDirectoryFails();
 testDefaultConfigDirDirectoryIsIgnored();
 testConfigDirDirectoryIsForwarded();
+testNonPrRunFailsWithoutExplicitRange();
+testMissingTokenFailsBeforeCli();
+testPrContextComputesMergeBase();
+testExplicitRangeBypassesGitResolution();
+testMissingTargetRefExplainsFetchFailure();
+testExplainPrintsResolvedContext();
 console.log("Azure DevOps task smoke tests passed");

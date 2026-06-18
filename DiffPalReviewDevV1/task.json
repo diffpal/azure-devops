@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 3
+    "Patch": 4
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review Dev",
@@ -45,7 +45,7 @@
       "label": "Base revision",
       "required": false,
       "defaultValue": "",
-      "helpMarkDown": "Base revision. Defaults to System.PullRequest.TargetCommitId when empty."
+      "helpMarkDown": "Base revision override. When omitted, the task computes the pull request merge-base from Azure PR context."
     },
     {
       "name": "head",
@@ -53,7 +53,7 @@
       "label": "Head revision",
       "required": false,
       "defaultValue": "",
-      "helpMarkDown": "Head revision. Defaults to System.PullRequest.SourceCommitId, then Build.SourceVersion, when empty."
+      "helpMarkDown": "Head revision override. When omitted, the task uses System.PullRequest.SourceCommitId."
     },
     {
       "name": "configDir",
@@ -92,6 +92,14 @@
       "required": false,
       "defaultValue": "false",
       "helpMarkDown": "Return non-zero when blocking findings exist."
+    },
+    {
+      "name": "explain",
+      "type": "boolean",
+      "label": "Explain resolved context",
+      "required": false,
+      "defaultValue": "false",
+      "helpMarkDown": "Print resolved Azure PR context, base/head revisions, merge-base, and redacted CLI arguments before running DiffPal."
     },
     {
       "name": "mode",

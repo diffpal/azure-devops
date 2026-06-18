@@ -3,6 +3,28 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as tl from "azure-pipelines-task-lib/task";
 
+type CommandResult = {
+  code: number;
+  stdout: string;
+  stderr: string;
+};
+
+type PullRequestContext = {
+  id: string;
+  sourceBranch: string;
+  targetBranch: string;
+  sourceCommit: string;
+  targetCommit: string;
+};
+
+type ReviewRange = {
+  base: string;
+  head: string;
+  mergeBase: string;
+  targetRef: string;
+  pullRequest: PullRequestContext;
+};
+
 function input(name: string): string {
   return (tl.getInput(name, false) ?? "").trim();
 }
@@ -22,6 +44,26 @@ function firstEnv(names: string[]): string {
     }
   }
   return "";
+}
+
+function isProbablySecretName(name: string): boolean {
+  const upper = name.toUpperCase();
+  return upper.includes("TOKEN") || upper.includes("SECRET") || upper.includes("PASSWORD") || upper.includes("KEY");
+}
+
+function redact(value: string): string {
+  if (!value) {
+    return value;
+  }
+
+  let redacted = value;
+  for (const [name, secret] of Object.entries(process.env)) {
+    if (!secret || secret.length < 4 || !isProbablySecretName(name)) {
+      continue;
+    }
+    redacted = redacted.split(secret).join("***");
+  }
+  return redacted;
 }
 
 function hydrateSystemAccessToken(): void {
@@ -114,6 +156,34 @@ function resolveOut(value: string): string {
   return supplied;
 }
 
+function normalizeTargetRef(targetBranch: string, targetCommit: string): string {
+  if (targetBranch.startsWith("refs/heads/")) {
+    return `origin/${targetBranch.slice("refs/heads/".length)}`;
+  }
+  if (targetBranch.startsWith("refs/remotes/")) {
+    return targetBranch.slice("refs/remotes/".length);
+  }
+  if (targetBranch) {
+    return targetBranch.startsWith("origin/") ? targetBranch : `origin/${targetBranch}`;
+  }
+  return targetCommit;
+}
+
+function targetFetchRef(targetBranch: string): string {
+  if (targetBranch.startsWith("refs/heads/")) {
+    const branch = targetBranch.slice("refs/heads/".length);
+    return `+refs/heads/${branch}:refs/remotes/origin/${branch}`;
+  }
+  if (targetBranch.startsWith("origin/")) {
+    const branch = targetBranch.slice("origin/".length);
+    return `+refs/heads/${branch}:refs/remotes/origin/${branch}`;
+  }
+  if (targetBranch && !targetBranch.startsWith("refs/")) {
+    return `+refs/heads/${targetBranch}:refs/remotes/origin/${targetBranch}`;
+  }
+  return targetBranch;
+}
+
 function boolInput(name: string, defaultValue: boolean): boolean {
   const value = input(name).toLowerCase();
   if (!value) {
@@ -122,19 +192,32 @@ function boolInput(name: string, defaultValue: boolean): boolean {
   return ["1", "true", "yes", "y", "on"].includes(value);
 }
 
-function resolveBase(inputBase: string): string {
-  return inputBase || firstEnv([
-    "SYSTEM_PULLREQUEST_TARGETCOMMITID",
-    "SYSTEM_PULLREQUEST_TARGETBRANCH"
-  ]);
+function resolvePullRequestContext(): PullRequestContext {
+  const ctx = {
+    id: firstEnv([
+      "SYSTEM_PULLREQUEST_PULLREQUESTID",
+      "SYSTEM_PULLREQUEST_PULLREQUESTNUMBER"
+    ]),
+    sourceBranch: firstEnv(["SYSTEM_PULLREQUEST_SOURCEBRANCH"]),
+    targetBranch: firstEnv(["SYSTEM_PULLREQUEST_TARGETBRANCH"]),
+    sourceCommit: firstEnv([
+      "SYSTEM_PULLREQUEST_SOURCECOMMITID",
+      "BUILD_SOURCEVERSION"
+    ]),
+    targetCommit: firstEnv(["SYSTEM_PULLREQUEST_TARGETCOMMITID"])
+  };
+
+  if (!ctx.id || !ctx.sourceCommit || (!ctx.targetBranch && !ctx.targetCommit)) {
+    throw new Error("DiffPalReview@1 requires an Azure pull request build. Configure this pipeline as PR validation or a branch policy.");
+  }
+  return ctx;
 }
 
-function resolveHead(inputHead: string): string {
-  return inputHead || firstEnv([
-    "SYSTEM_PULLREQUEST_SOURCECOMMITID",
-    "BUILD_SOURCEVERSION",
-    "SYSTEM_PULLREQUEST_SOURCEBRANCH"
-  ]);
+function validateAuth(): void {
+  if (firstEnv(["SYSTEM_ACCESSTOKEN", "AZURE_DEVOPS_EXT_PAT"])) {
+    return;
+  }
+  throw new Error("SYSTEM_ACCESSTOKEN is required for Azure PR feedback. Enable 'Allow scripts to access the OAuth token' and pass SYSTEM_ACCESSTOKEN: $(System.AccessToken), or set AZURE_DEVOPS_EXT_PAT.");
 }
 
 function spawnCommand(command: string, args: string[]): Promise<number> {
@@ -148,6 +231,116 @@ function spawnCommand(command: string, args: string[]): Promise<number> {
     child.on("error", reject);
     child.on("close", (code) => resolve(code ?? 1));
   });
+}
+
+function runCommand(command: string, args: string[]): Promise<CommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      env: process.env,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({
+      code: code ?? 1,
+      stdout,
+      stderr
+    }));
+  });
+}
+
+async function fetchTargetBranch(targetBranch: string): Promise<void> {
+  if (!targetBranch) {
+    return;
+  }
+
+  const fetchRef = targetFetchRef(targetBranch);
+  if (!fetchRef) {
+    return;
+  }
+
+  const git = tl.which("git", true);
+  const result = await runCommand(git, ["fetch", "--no-tags", "origin", fetchRef]);
+  if (result.code !== 0) {
+    throw new Error(`Unable to fetch Azure PR target ref ${targetBranch}. Ensure checkout uses fetchDepth: 0 or that the target branch is fetchable. git fetch stderr: ${redact(result.stderr.trim())}`);
+  }
+}
+
+async function computeMergeBase(targetRef: string, head: string): Promise<string> {
+  const git = tl.which("git", true);
+  const result = await runCommand(git, ["merge-base", targetRef, head]);
+  if (result.code !== 0) {
+    throw new Error(`Unable to compute PR merge-base for target ${targetRef} and head ${head}. Ensure checkout uses fetchDepth: 0 and the target ref was fetched. git merge-base stderr: ${redact(result.stderr.trim())}`);
+  }
+  const mergeBase = result.stdout.trim();
+  if (!mergeBase) {
+    throw new Error(`git merge-base returned an empty result for target ${targetRef} and head ${head}. Ensure checkout uses fetchDepth: 0.`);
+  }
+  return mergeBase;
+}
+
+async function resolveReviewRange(inputBase: string, inputHead: string): Promise<ReviewRange> {
+  const explicitBase = inputBase.trim();
+  const explicitHead = inputHead.trim();
+  if (explicitBase && explicitHead) {
+    return {
+      base: explicitBase,
+      head: explicitHead,
+      mergeBase: explicitBase,
+      targetRef: "",
+      pullRequest: {
+        id: "",
+        sourceBranch: "",
+        targetBranch: "",
+        sourceCommit: "",
+        targetCommit: ""
+      }
+    };
+  }
+
+  const pullRequest = resolvePullRequestContext();
+  const head = explicitHead || pullRequest.sourceCommit;
+  const targetRef = normalizeTargetRef(pullRequest.targetBranch, pullRequest.targetCommit);
+  if (!targetRef) {
+    throw new Error("Azure PR target branch or target commit was not available. Ensure this task runs in PR validation.");
+  }
+
+  await fetchTargetBranch(pullRequest.targetBranch);
+  const mergeBase = await computeMergeBase(targetRef, head);
+  return {
+    base: explicitBase || mergeBase,
+    head,
+    mergeBase,
+    targetRef,
+    pullRequest
+  };
+}
+
+function printExplain(range: ReviewRange, args: string[]): void {
+  const lines = [
+    "DiffPal Azure task explain:",
+    `  PR id: ${range.pullRequest.id}`,
+    `  source branch: ${range.pullRequest.sourceBranch || "(unknown)"}`,
+    `  target branch: ${range.pullRequest.targetBranch || "(unknown)"}`,
+    `  source commit: ${range.pullRequest.sourceCommit || "(unknown)"}`,
+    `  target commit: ${range.pullRequest.targetCommit || "(unknown)"}`,
+    `  target ref: ${range.targetRef || "(explicit base/head)"}`,
+    `  merge-base: ${range.mergeBase}`,
+    `  final base: ${range.base}`,
+    `  final head: ${range.head}`,
+    `  final CLI args: ${redact(args.join(" "))}`
+  ];
+  for (const line of lines) {
+    console.log(line);
+  }
 }
 
 async function installDiffPal(version: string): Promise<string> {
@@ -204,10 +397,12 @@ async function resolveDiffPalCommand(): Promise<string> {
 
 async function run(): Promise<void> {
   hydrateSystemAccessToken();
+  validateAuth();
 
   const command = await resolveDiffPalCommand();
-  const base = requireValue("base or System.PullRequest.TargetCommitId", resolveBase(input("base")));
-  const head = requireValue("head or System.PullRequest.SourceCommitId", resolveHead(input("head")));
+  const range = await resolveReviewRange(input("base"), input("head"));
+  const base = requireValue("base", range.base);
+  const head = requireValue("head", range.head);
   const blockOn = input("blockOn") || "high";
   const gate = tl.getBoolInput("gate", false);
 
@@ -235,6 +430,10 @@ async function run(): Promise<void> {
   addOptional(args, "--context-lines", input("contextLines"));
   addOptional(args, "--max-patch-chars", input("maxPatchChars"));
   addOptional(args, "--max-files-per-chunk", input("maxFilesPerChunk"));
+
+  if (boolInput("explain", false)) {
+    printExplain(range, args);
+  }
 
   tl.debug(`Running ${command} ${args.join(" ")}`);
   const code = await spawnCommand(command, args);

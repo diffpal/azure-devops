@@ -22,16 +22,22 @@ steps:
 ```
 
 The task installs the configured DiffPal CLI package, resolves pull request
-base/head revisions from Azure Pipelines variables when inputs are omitted, and
-passes provider credentials through environment variables.
+base/head revisions from Azure Pipelines variables when inputs are omitted,
+computes the PR merge-base from the target branch and source commit, and passes
+provider credentials through environment variables.
 
 ## Requirements
 
 - Enable scripts to access `System.AccessToken` for pull request publishing.
+- Run as pull request validation or an Azure branch policy.
+- Keep `fetchDepth: 0` on checkout so the target branch and merge-base are
+  available.
 - Add the provider credential required by your DiffPal profile, such as
   `OPENAI_API_KEY`.
 - Keep DiffPal configuration in `.config/diffpal/config.yaml` or pass a custom
   `configDir`.
+- Set `explain: true` while debugging to print resolved PR context, base/head,
+  merge-base, and redacted CLI arguments.
 
 ## Documentation
 

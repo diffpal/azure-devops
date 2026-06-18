@@ -21,7 +21,23 @@ VSIX packaging, and Marketplace release flow.
 The task installs `@diffpal/diffpal` by default and runs `diffpal review ado`.
 Bring the provider recipe you want to use; the Azure review flow stays the same.
 
-## Example
+## Behavior
+
+`DiffPalReview@1` is a pull request validation task. When `base` and `head` are
+not set explicitly, the task reads Azure PR variables, fetches the target branch,
+computes `git merge-base <target> <source>`, and reviews that range. Keep
+`fetchDepth: 0` on checkout so the merge-base can be computed reliably.
+
+The task also validates optional path inputs before invoking DiffPal. Azure may
+resolve unset `filePath` inputs to the workspace directory; those implicit
+defaults are ignored, and explicit invalid paths fail with task-level messages.
+
+Set `explain: true` to print the resolved PR id, branches, commits, merge-base,
+base/head, and redacted CLI arguments before the review starts.
+
+## Examples
+
+### Minimal PR validation
 
 ```yaml
 steps:
@@ -46,13 +62,103 @@ steps:
       diffpalVersion: latest
       profile: ci
       feedback: balanced
-      gate: true
     env:
       OPENAI_API_KEY: $(OPENAI_API_KEY)
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 ```
 
-Full CI examples live in the main DiffPal repo:
+### Blocking gate
+
+```yaml
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: DiffPalReview@1
+    displayName: DiffPal blocking review
+    inputs:
+      profile: ci
+      feedback: balanced
+      gate: true
+      blockOn: high
+    env:
+      OPENAI_API_KEY: $(OPENAI_API_KEY)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
+### Copilot auth
+
+```yaml
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - task: NodeTool@0
+    inputs:
+      versionSpec: "22.x"
+
+  - script: npm install --global @normahq/codex-acp-bridge@1.6.3
+    displayName: Install Copilot bridge
+
+  - task: DiffPalReview@1
+    displayName: DiffPal review with Copilot
+    inputs:
+      profile: ci
+      feedback: balanced
+    env:
+      GITHUB_TOKEN: $(GITHUB_TOKEN)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
+### Coexist with another review engine
+
+```yaml
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - script: ./run-existing-review.sh
+    displayName: Existing review engine
+
+  - task: DiffPalReview@1
+    displayName: DiffPal summary-only review
+    inputs:
+      profile: ci
+      feedback: summary
+      gate: false
+    env:
+      OPENAI_API_KEY: $(OPENAI_API_KEY)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
+### Explicit base/head fallback
+
+Use explicit revisions only when you need to override the task's PR merge-base
+resolution.
+
+```yaml
+steps:
+  - checkout: self
+    fetchDepth: 0
+
+  - bash: |
+      git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+      echo "##vso[task.setvariable variable=DIFFPAL_BASE]$(git merge-base origin/main "$BUILD_SOURCEVERSION")"
+    displayName: Resolve DiffPal base
+
+  - task: DiffPalReview@1
+    displayName: DiffPal review
+    inputs:
+      profile: ci
+      base: $(DIFFPAL_BASE)
+      head: $(Build.SourceVersion)
+      explain: true
+    env:
+      OPENAI_API_KEY: $(OPENAI_API_KEY)
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+```
+
+More CI examples live in the main DiffPal repo:
 <https://github.com/diffpal/diffpal/tree/main/examples/ci/azure-pipelines>
 
 ## Development
