@@ -1,50 +1,50 @@
 {
-  "manifestVersion": 1,
-  "id": "diffpal-dev",
-  "name": "DiffPal Review Dev",
-  "version": "0.1.19",
-  "publisher": "diffpal",
-  "description": "Development build of the DiffPal pull request review task for Azure Pipelines.",
-  "public": false,
-  "icons": {
-    "default": "images/diffpal-icon.png"
-  },
+  "categories": [
+    "Azure Pipelines"
+  ],
   "content": {
     "details": {
       "path": "overview.md"
     }
   },
-  "categories": [
-    "Azure Pipelines"
-  ],
-  "targets": [
+  "contributions": [
     {
-      "id": "Microsoft.VisualStudio.Services"
+      "id": "diffpal-dev-task",
+      "properties": {
+        "name": "DiffPalReviewDevV1"
+      },
+      "targets": [
+        "ms.vss-distributed-task.tasks"
+      ],
+      "type": "ms.vss-distributed-task.task"
     }
   ],
+  "description": "Development build of the DiffPal pull request review task for Azure Pipelines.",
   "files": [
     {
-      "path": "overview.md",
-      "addressable": true
+      "addressable": true,
+      "path": "overview.md"
     },
     {
-      "path": "images/diffpal-icon.png",
-      "addressable": true
+      "addressable": true,
+      "path": "images/diffpal-icon.png"
     },
     {
       "path": "DiffPalReviewDevV1"
     }
   ],
-  "contributions": [
+  "icons": {
+    "default": "images/diffpal-icon.png"
+  },
+  "id": "diffpal-dev",
+  "manifestVersion": 1,
+  "name": "DiffPal Review Dev",
+  "public": false,
+  "publisher": "diffpal",
+  "targets": [
     {
-      "id": "diffpal-dev-task",
-      "type": "ms.vss-distributed-task.task",
-      "targets": [
-        "ms.vss-distributed-task.tasks"
-      ],
-      "properties": {
-        "name": "DiffPalReviewDevV1"
-      }
+      "id": "Microsoft.VisualStudio.Services"
     }
-  ]
+  ],
+  "version": "0.1.22"
 }

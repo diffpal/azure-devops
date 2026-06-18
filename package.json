@@ -1,38 +1,38 @@
 {
-  "name": "@diffpal/azure-devops-extension",
-  "version": "0.1.19",
-  "private": true,
-  "description": "Azure DevOps extension and pipeline task for DiffPal review",
-  "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/copy-task-handler.js",
-    "smoke": "npm run build && node scripts/smoke-test.js",
-    "package:prod": "npm run build && mkdir -p dist && tfx extension create --manifest-globs vss-extension.json --output-path dist/diffpal.vsix",
-    "package:dev": "npm run build && mkdir -p dist && tfx extension create --manifest-globs vss-extension.dev.json --output-path dist/diffpal-dev.vsix",
-    "publish:prod": "npm run build && tfx extension publish --manifest-globs vss-extension.json",
-    "publish:dev": "npm run build && tfx extension publish --manifest-globs vss-extension.dev.json"
+  "author": "Alexey Samoylov",
+  "bugs": {
+    "url": "https://github.com/diffpal/azure-devops/issues"
   },
   "dependencies": {
     "azure-pipelines-task-lib": "5.2.10"
   },
+  "description": "Azure DevOps extension and pipeline task for DiffPal review",
   "devDependencies": {
     "@types/node": "^20.17.10",
     "tfx-cli": "0.23.1",
     "typescript": "^5.7.2"
   },
+  "engines": {
+    "node": "\u003e=20"
+  },
+  "homepage": "https://github.com/diffpal/azure-devops#readme",
+  "license": "MIT",
+  "name": "@diffpal/azure-devops-extension",
   "overrides": {
     "uuid": "3.4.0"
   },
-  "engines": {
-    "node": ">=20"
-  },
-  "author": "Alexey Samoylov",
-  "license": "MIT",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/diffpal/azure-devops.git"
   },
-  "bugs": {
-    "url": "https://github.com/diffpal/azure-devops/issues"
+  "scripts": {
+    "build": "tsc -p tsconfig.json \u0026\u0026 node scripts/copy-task-handler.js",
+    "package:dev": "npm run build \u0026\u0026 mkdir -p dist \u0026\u0026 tfx extension create --manifest-globs vss-extension.dev.json --output-path dist/diffpal-dev.vsix",
+    "package:prod": "npm run build \u0026\u0026 mkdir -p dist \u0026\u0026 tfx extension create --manifest-globs vss-extension.json --output-path dist/diffpal.vsix",
+    "publish:dev": "npm run build \u0026\u0026 tfx extension publish --manifest-globs vss-extension.dev.json",
+    "publish:prod": "npm run build \u0026\u0026 tfx extension publish --manifest-globs vss-extension.json",
+    "smoke": "npm run build \u0026\u0026 node scripts/smoke-test.js"
   },
-  "homepage": "https://github.com/diffpal/azure-devops#readme"
+  "version": "0.1.22"
 }
