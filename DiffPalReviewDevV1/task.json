@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 5
+    "Patch": 6
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review Dev",
@@ -131,14 +131,6 @@
       "helpMarkDown": "Language for generated review findings."
     },
     {
-      "name": "reviewChecks",
-      "type": "string",
-      "label": "Review checks",
-      "required": false,
-      "defaultValue": "",
-      "helpMarkDown": "Comma-separated checks to run: security, bugs, performance, best-practices."
-    },
-    {
       "name": "instructions",
       "type": "multiLine",
       "label": "Review instructions",
@@ -185,30 +177,6 @@
       "required": false,
       "defaultValue": "",
       "helpMarkDown": "Maximum files from diff."
-    },
-    {
-      "name": "contextLines",
-      "type": "string",
-      "label": "Context lines",
-      "required": false,
-      "defaultValue": "",
-      "helpMarkDown": "Context lines to enrich each changed file."
-    },
-    {
-      "name": "maxPatchChars",
-      "type": "string",
-      "label": "Max patch chars",
-      "required": false,
-      "defaultValue": "",
-      "helpMarkDown": "Maximum context characters per chunk."
-    },
-    {
-      "name": "maxFilesPerChunk",
-      "type": "string",
-      "label": "Max files per chunk",
-      "required": false,
-      "defaultValue": "",
-      "helpMarkDown": "Maximum files per context chunk."
     }
   ],
   "execution": {

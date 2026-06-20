@@ -420,16 +420,12 @@ async function run(): Promise<void> {
     addOptional(args, "--feedback", input("feedback") || "balanced");
   }
   addOptional(args, "--language", input("language"));
-  addOptional(args, "--review-checks", input("reviewChecks"));
   addOptional(args, "--instructions", input("instructions"));
   addOptional(args, "--instructions-file", resolveInstructionsFile(input("instructionsFile")));
   addOptional(args, "--out", resolveOut(input("out")));
   addOptional(args, "--repo", input("repo"));
   addOptional(args, "--review-id", input("reviewId"));
   addOptional(args, "--max-files", input("maxFiles"));
-  addOptional(args, "--context-lines", input("contextLines"));
-  addOptional(args, "--max-patch-chars", input("maxPatchChars"));
-  addOptional(args, "--max-files-per-chunk", input("maxFilesPerChunk"));
 
   if (boolInput("explain", false)) {
     printExplain(range, args);
