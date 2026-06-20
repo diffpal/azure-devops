@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 7
+    "Patch": 8
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review",
@@ -120,7 +120,7 @@
         "balanced": "Balanced",
         "inline": "Inline"
       },
-      "helpMarkDown": "Review feedback shape. Summary posts status and one PR summary. Balanced adds actionable inline threads. Inline uses a more permissive inline threshold."
+      "helpMarkDown": "Review feedback shape. Summary posts status and one PR summary. Balanced and Inline publish Azure threads for all findings; blocking findings stay active and non-blocking findings are closed immediately."
     },
     {
       "name": "language",
