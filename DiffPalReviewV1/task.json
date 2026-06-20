@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 6
+    "Patch": 7
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review",
@@ -169,14 +169,6 @@
       "required": false,
       "defaultValue": "",
       "helpMarkDown": "Review identifier for deterministic outputs."
-    },
-    {
-      "name": "maxFiles",
-      "type": "string",
-      "label": "Max files",
-      "required": false,
-      "defaultValue": "",
-      "helpMarkDown": "Maximum files from diff."
     }
   ],
   "execution": {

@@ -425,7 +425,6 @@ async function run(): Promise<void> {
   addOptional(args, "--out", resolveOut(input("out")));
   addOptional(args, "--repo", input("repo"));
   addOptional(args, "--review-id", input("reviewId"));
-  addOptional(args, "--max-files", input("maxFiles"));
 
   if (boolInput("explain", false)) {
     printExplain(range, args);
