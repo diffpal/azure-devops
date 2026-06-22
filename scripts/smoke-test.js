@@ -155,8 +155,40 @@ function testDefaultPinnedVersionIsUsedWhenInputIsUnset() {
     PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
   });
 
-  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.34"), "default install did not request the pinned DiffPal version");
+  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.35"), "default install did not request the pinned DiffPal version");
   assert(read(diffpalArgv).includes("review\nado"), "default pinned version did not run diffpal review ado");
+}
+
+function testDebugInputForwardsDebugFlag() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-debug-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("debug input", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_DEBUG: "true"
+  });
+
+  const argv = read(diffpalArgv).split("\n").filter(Boolean);
+  assert(argv[0] === "--debug", `debug flag should be forwarded before subcommands, got ${JSON.stringify(argv)}`);
+  assert(argv.includes("review") && argv.includes("ado"), "debug input should still run diffpal review ado");
+}
+
+function testDebugDefaultsOff() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-debug-default-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv);
+
+  runHandler("debug default off", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal
+  });
+
+  const argv = read(diffpalArgv).split("\n").filter(Boolean);
+  assert(!argv.includes("--debug"), `debug flag should be omitted by default, got ${JSON.stringify(argv)}`);
 }
 
 function testCustomPathSkipsInstall() {
@@ -565,6 +597,8 @@ function testNonGateFailureStaysGeneric() {
 
 testDefaultInstall();
 testDefaultPinnedVersionIsUsedWhenInputIsUnset();
+testDebugInputForwardsDebugFlag();
+testDebugDefaultsOff();
 testCustomPathSkipsInstall();
 testInstallDisabledUsesPath();
 testDefaultInstructionsFileDirectoryIsIgnored();
