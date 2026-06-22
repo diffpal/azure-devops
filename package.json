@@ -34,5 +34,5 @@
     "publish:prod": "npm run build \u0026\u0026 tfx extension publish --manifest-globs vss-extension.json",
     "smoke": "npm run build \u0026\u0026 node scripts/smoke-test.js"
   },
-  "version": "0.1.31"
+  "version": "0.1.32"
 }

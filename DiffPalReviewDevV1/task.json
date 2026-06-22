@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 9
+    "Patch": 10
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review Dev",

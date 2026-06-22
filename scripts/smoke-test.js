@@ -520,6 +520,30 @@ function testGateFailureUsesHumanMessageForReviewBlockedExitCode() {
   assert(!result.stdout.includes("diffpal exited with code 10"), "gate failure should not fall back to the generic exit code message");
 }
 
+function testTransientStructuredOutputFailureUsesHumanMessage() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-transient-structured-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv, {
+    exitCode: 3,
+    stderr: [
+      "diffpal: transient: validate structured output: structured output schema validation error\n",
+      "structured I/O schema validation error\n",
+      "extract output JSON: output is empty\n"
+    ].join("")
+  });
+
+  const result = runHandlerExpectFailure("transient structured output failure", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_GATE: "true"
+  });
+
+  assert(result.status === 3, `transient failure exit code should be preserved, got ${result.status}`);
+  assert(result.stdout.includes("DiffPal review could not complete because the provider returned an empty or invalid structured response after retries."), "transient structured output failure should be human-readable");
+  assert(!result.stdout.includes("diffpal exited with code 3"), "transient structured output failure should not use the generic exit code message");
+}
+
 function testNonGateFailureStaysGeneric() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-generic-failure-"));
   const diffpalArgv = path.join(dir, "diffpal-argv");
@@ -558,5 +582,6 @@ testExplicitRangeBypassesGitResolution();
 testMissingTargetRefExplainsFetchFailure();
 testExplainPrintsResolvedContext();
 testGateFailureUsesHumanMessageForReviewBlockedExitCode();
+testTransientStructuredOutputFailureUsesHumanMessage();
 testNonGateFailureStaysGeneric();
 console.log("Azure DevOps task smoke tests passed");

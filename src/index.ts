@@ -26,6 +26,7 @@ type ReviewRange = {
 };
 
 const DEFAULT_DIFFPAL_VERSION = "0.1.31";
+const TRANSIENT_REVIEW_EXIT_CODE = 3;
 const REVIEW_BLOCKED_EXIT_CODE = 10;
 
 function input(name: string): string {
@@ -292,6 +293,31 @@ function isReviewBlockedFailure(code: number): boolean {
   return code === REVIEW_BLOCKED_EXIT_CODE;
 }
 
+function isTransientReviewFailure(code: number): boolean {
+  return code === TRANSIENT_REVIEW_EXIT_CODE;
+}
+
+function hasStructuredOutputFailure(output: string): boolean {
+  const normalized = output.toLowerCase();
+  return normalized.includes("structured output") ||
+    normalized.includes("output is empty") ||
+    normalized.includes("no json object");
+}
+
+function diffPalFailureMessage(result: CommandResult, gate: boolean, blockOn: string): string {
+  if (gate && isReviewBlockedFailure(result.code)) {
+    return `DiffPal code review found blocking issues at or above the ${blockOn} threshold.`;
+  }
+  if (isTransientReviewFailure(result.code)) {
+    const output = `${result.stdout}\n${result.stderr}`;
+    if (hasStructuredOutputFailure(output)) {
+      return "DiffPal review could not complete because the provider returned an empty or invalid structured response after retries. Rerun the pipeline or check provider availability, auth, and quota.";
+    }
+    return "DiffPal review could not complete because the provider failed transiently after retries. Rerun the pipeline or check provider availability, auth, and quota.";
+  }
+  return `diffpal exited with code ${result.code}`;
+}
+
 async function fetchTargetBranch(targetBranch: string): Promise<void> {
   if (!targetBranch) {
     return;
@@ -469,11 +495,7 @@ async function run(): Promise<void> {
   const result = await spawnCommandWithCapture(command, args);
   if (result.code !== 0) {
     process.exitCode = result.code;
-    if (gate && isReviewBlockedFailure(result.code)) {
-      tl.setResult(tl.TaskResult.Failed, `DiffPal code review found blocking issues at or above the ${blockOn} threshold.`);
-      return;
-    }
-    tl.setResult(tl.TaskResult.Failed, `diffpal exited with code ${result.code}`);
+    tl.setResult(tl.TaskResult.Failed, diffPalFailureMessage(result, gate, blockOn));
     return;
   }
   tl.setResult(tl.TaskResult.Succeeded, "DiffPal review completed");
