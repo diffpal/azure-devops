@@ -25,7 +25,7 @@ type ReviewRange = {
   pullRequest: PullRequestContext;
 };
 
-const DEFAULT_DIFFPAL_VERSION = "0.1.34";
+const DEFAULT_DIFFPAL_VERSION = "0.1.35";
 const TRANSIENT_REVIEW_EXIT_CODE = 3;
 const REVIEW_BLOCKED_EXIT_CODE = 10;
 
@@ -468,6 +468,9 @@ async function run(): Promise<void> {
   const gate = tl.getBoolInput("gate", false);
 
   const args: string[] = [];
+  if (boolInput("debug", false)) {
+    args.push("--debug");
+  }
   addOptional(args, "--config-dir", resolveConfigDir(input("configDir")));
   addOptional(args, "--profile", input("profile"));
   args.push("review", "ado", "--base", base, "--head", head, "--block-on", blockOn);

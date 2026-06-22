@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 13
+    "Patch": 14
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review Dev",
@@ -28,7 +28,7 @@
       "type": "string",
       "label": "DiffPal version",
       "required": false,
-      "defaultValue": "0.1.34",
+      "defaultValue": "0.1.35",
       "helpMarkDown": "npm version or dist-tag for @diffpal/diffpal."
     },
     {
@@ -100,6 +100,14 @@
       "required": false,
       "defaultValue": "false",
       "helpMarkDown": "Print resolved Azure PR context, base/head revisions, merge-base, and redacted CLI arguments before running DiffPal."
+    },
+    {
+      "name": "debug",
+      "type": "boolean",
+      "label": "Enable DiffPal debug logging",
+      "required": false,
+      "defaultValue": "false",
+      "helpMarkDown": "Pass --debug to DiffPal so provider and runtime diagnostics are printed."
     },
     {
       "name": "mode",
