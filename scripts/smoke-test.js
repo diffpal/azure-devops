@@ -155,7 +155,7 @@ function testDefaultPinnedVersionIsUsedWhenInputIsUnset() {
     PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
   });
 
-  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.33"), "default install did not request the pinned DiffPal version");
+  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.34"), "default install did not request the pinned DiffPal version");
   assert(read(diffpalArgv).includes("review\nado"), "default pinned version did not run diffpal review ado");
 }
 

@@ -20,7 +20,7 @@ VSIX packaging, and Marketplace release flow.
 
 The task installs `@diffpal/diffpal` by default and runs `diffpal review ado`.
 Bring the provider recipe you want to use; the Azure review flow stays the same.
-By default it installs `@diffpal/diffpal@0.1.33`, the tested CLI release paired
+By default it installs `@diffpal/diffpal@0.1.34`, the tested CLI release paired
 with this extension. Set `diffpalVersion` only when you need to override that
 default rollout.
 
@@ -67,7 +67,7 @@ steps:
   - task: DiffPalReview@1
     displayName: DiffPal review
     inputs:
-      diffpalVersion: 0.1.33
+      diffpalVersion: 0.1.34
       profile: ci
       feedback: balanced
     env:
