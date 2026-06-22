@@ -25,6 +25,9 @@ type ReviewRange = {
   pullRequest: PullRequestContext;
 };
 
+const DEFAULT_DIFFPAL_VERSION = "0.1.31";
+const REVIEW_BLOCKED_EXIT_CODE = 10;
+
 function input(name: string): string {
   return (tl.getInput(name, false) ?? "").trim();
 }
@@ -233,6 +236,34 @@ function spawnCommand(command: string, args: string[]): Promise<number> {
   });
 }
 
+function spawnCommandWithCapture(command: string, args: string[]): Promise<CommandResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      env: process.env,
+      shell: false,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      stdout += text;
+      process.stdout.write(text);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      const text = chunk.toString("utf8");
+      stderr += text;
+      process.stderr.write(text);
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({
+      code: code ?? 1,
+      stdout,
+      stderr
+    }));
+  });
+}
+
 function runCommand(command: string, args: string[]): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -255,6 +286,10 @@ function runCommand(command: string, args: string[]): Promise<CommandResult> {
       stderr
     }));
   });
+}
+
+function isReviewBlockedFailure(code: number): boolean {
+  return code === REVIEW_BLOCKED_EXIT_CODE;
 }
 
 async function fetchTargetBranch(targetBranch: string): Promise<void> {
@@ -349,7 +384,7 @@ async function installDiffPal(version: string): Promise<string> {
   const installRoot = path.join(tempDir, "diffpal-task");
   fs.mkdirSync(installRoot, { recursive: true });
 
-  const packageSpec = `@diffpal/diffpal@${version || "latest"}`;
+  const packageSpec = `@diffpal/diffpal@${version || DEFAULT_DIFFPAL_VERSION}`;
   tl.debug(`Installing ${packageSpec} into ${installRoot}`);
   const code = await spawnCommand(npm, [
     "install",
@@ -392,7 +427,7 @@ async function resolveDiffPalCommand(): Promise<string> {
   if (!boolInput("install", true)) {
     return tl.which(diffpalPath, true);
   }
-  return installDiffPal(input("diffpalVersion") || "latest");
+  return installDiffPal(input("diffpalVersion") || DEFAULT_DIFFPAL_VERSION);
 }
 
 async function run(): Promise<void> {
@@ -431,10 +466,14 @@ async function run(): Promise<void> {
   }
 
   tl.debug(`Running ${command} ${args.join(" ")}`);
-  const code = await spawnCommand(command, args);
-  if (code !== 0) {
-    process.exitCode = code;
-    tl.setResult(tl.TaskResult.Failed, `diffpal exited with code ${code}`);
+  const result = await spawnCommandWithCapture(command, args);
+  if (result.code !== 0) {
+    process.exitCode = result.code;
+    if (gate && isReviewBlockedFailure(result.code)) {
+      tl.setResult(tl.TaskResult.Failed, `DiffPal code review found blocking issues at or above the ${blockOn} threshold.`);
+      return;
+    }
+    tl.setResult(tl.TaskResult.Failed, `diffpal exited with code ${result.code}`);
     return;
   }
   tl.setResult(tl.TaskResult.Succeeded, "DiffPal review completed");
