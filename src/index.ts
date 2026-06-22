@@ -25,7 +25,7 @@ type ReviewRange = {
   pullRequest: PullRequestContext;
 };
 
-const DEFAULT_DIFFPAL_VERSION = "0.1.32";
+const DEFAULT_DIFFPAL_VERSION = "0.1.33";
 const TRANSIENT_REVIEW_EXIT_CODE = 3;
 const REVIEW_BLOCKED_EXIT_CODE = 10;
 
