@@ -28,7 +28,7 @@
       "type": "string",
       "label": "DiffPal version",
       "required": false,
-      "defaultValue": "0.1.35",
+      "defaultValue": "0.1.36",
       "helpMarkDown": "npm version or dist-tag for @diffpal/diffpal."
     },
     {
