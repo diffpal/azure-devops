@@ -194,7 +194,7 @@ VSIX files are written to `dist/`.
 Set versions before tagging:
 
 ```bash
-task release:set-version VERSION=0.1.19
+task release:set-version VERSION=0.1.39 TASK_VERSION=1.6.15
 ```
 
 Publish uses the `release.yml` workflow and requires `AZURE_DEVOPS_EXT_PAT` in the `azure-devops-marketplace` GitHub Environment.

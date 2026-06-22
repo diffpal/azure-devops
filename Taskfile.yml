@@ -2,10 +2,11 @@ version: "3"
 
 tasks:
   release:set-version:
-    desc: Set checked-in extension release metadata to VERSION.
+    desc: Set checked-in extension and task release metadata.
     requires:
       vars:
         - VERSION
+        - TASK_VERSION
     preconditions:
       - sh: command -v semverctl >/dev/null 2>&1
         msg: "Install semverctl with: npm install --global @metalagman/semverctl@latest"
@@ -13,4 +14,5 @@ tasks:
       - semverctl set file "{{.VERSION}}" package.json
       - semverctl set file "{{.VERSION}}" vss-extension.json
       - semverctl set file "{{.VERSION}}" vss-extension.dev.json
+      - node scripts/set-task-version.js "{{.TASK_VERSION}}"
       - npm install --package-lock-only --ignore-scripts
