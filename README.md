@@ -41,7 +41,7 @@ base/head, and redacted CLI arguments before the review starts.
 Set `debug: true` to pass `--debug` to DiffPal and enable provider/runtime
 diagnostics. This is separate from Azure `System.Debug`.
 
-With `feedback: balanced` or `feedback: inline`, DiffPal publishes Azure threads
+With `feedback: review`, DiffPal publishes Azure threads
 for all findings. Blocking findings stay active; non-blocking findings are
 published as closed immediately. Findings without canonical file/line mapping to
 current PR changes are skipped instead of publishing a broken file thread.
@@ -72,7 +72,7 @@ steps:
     inputs:
       diffpalVersion: 0.1.35
       profile: ci
-      feedback: balanced
+      feedback: review
     env:
       OPENAI_API_KEY: $(OPENAI_API_KEY)
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
@@ -95,7 +95,7 @@ steps:
     displayName: DiffPal blocking review
     inputs:
       profile: ci
-      feedback: balanced
+      feedback: review
       gate: true
       blockOn: high
     env:
@@ -121,7 +121,7 @@ steps:
     displayName: DiffPal review with Copilot
     inputs:
       profile: ci
-      feedback: balanced
+      feedback: review
     env:
       GITHUB_TOKEN: $(GITHUB_TOKEN)
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)

@@ -14,7 +14,7 @@ steps:
   - task: DiffPalReview@1
     inputs:
       profile: ci
-      feedback: balanced
+      feedback: review
       gate: true
     env:
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
