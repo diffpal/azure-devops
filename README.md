@@ -20,8 +20,9 @@ VSIX packaging, and Marketplace release flow.
 
 The task installs `@diffpal/diffpal` by default and runs `diffpal review ado`.
 Bring the provider recipe you want to use; the Azure review flow stays the same.
-By default it installs `@diffpal/diffpal@latest`, so pin `diffpalVersion` when
-you need rollout-safe CLI behavior.
+By default it installs `@diffpal/diffpal@0.1.31`, the tested CLI release paired
+with this extension. Set `diffpalVersion` only when you need to override that
+default rollout.
 
 ## Behavior
 
@@ -39,8 +40,8 @@ base/head, and redacted CLI arguments before the review starts.
 
 With `feedback: balanced` or `feedback: inline`, DiffPal publishes Azure threads
 for all findings. Blocking findings stay active; non-blocking findings are
-published as closed immediately. Findings without canonical file/line mapping
-fall back to non-file PR threads.
+published as closed immediately. Findings without canonical file/line mapping to
+current PR changes are skipped instead of publishing a broken file thread.
 
 ## Examples
 
@@ -66,13 +67,16 @@ steps:
   - task: DiffPalReview@1
     displayName: DiffPal review
     inputs:
-      diffpalVersion: latest
+      diffpalVersion: 0.1.31
       profile: ci
       feedback: balanced
     env:
       OPENAI_API_KEY: $(OPENAI_API_KEY)
       SYSTEM_ACCESSTOKEN: $(System.AccessToken)
 ```
+
+When blocking findings are present, the task fails with a human-readable gate
+message and preserves the non-zero DiffPal exit code for pipeline control.
 
 ### Blocking gate
 

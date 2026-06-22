@@ -63,10 +63,16 @@ function read(file) {
   return fs.readFileSync(file, "utf8");
 }
 
-function makeFakeDiffPal(file, argvFile) {
+function makeFakeDiffPal(file, argvFile, options = {}) {
+  const exitCode = options.exitCode ?? 0;
+  const stdout = options.stdout ?? "";
+  const stderr = options.stderr ?? "";
   writeExecutable(file, `#!/usr/bin/env bash
 set -euo pipefail
 printf '%s\\n' "$@" > "${argvFile}"
+printf '%b' ${JSON.stringify(stdout)}
+printf '%b' ${JSON.stringify(stderr)} >&2
+exit ${exitCode}
 `);
 }
 
@@ -132,6 +138,25 @@ function testDefaultInstall() {
 
   assert(read(npmArgv).includes("@diffpal/diffpal@0.1.2"), "default install did not request the configured package version");
   assert(read(diffpalArgv).includes("review\nado"), "default install did not run diffpal review ado");
+}
+
+function testDefaultPinnedVersionIsUsedWhenInputIsUnset() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-default-version-"));
+  const fakeBin = path.join(dir, "bin");
+  const npmArgv = path.join(dir, "npm-argv");
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const agentTemp = path.join(dir, "agent-temp");
+  fs.mkdirSync(agentTemp, { recursive: true });
+  makeFakeNpm(path.join(fakeBin, "npm"), npmArgv, diffpalArgv);
+
+  runHandler("default pinned version", {
+    AGENT_TEMPDIRECTORY: agentTemp,
+    INPUT_INSTALL: "true",
+    PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
+  });
+
+  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.31"), "default install did not request the pinned DiffPal version");
+  assert(read(diffpalArgv).includes("review\nado"), "default pinned version did not run diffpal review ado");
 }
 
 function testCustomPathSkipsInstall() {
@@ -475,7 +500,47 @@ function testExplainPrintsResolvedContext() {
   assert(!result.stdout.includes("secret-token-value"), "explain output should redact secrets");
 }
 
+function testGateFailureUsesHumanMessageForReviewBlockedExitCode() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-gate-blocked-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv, {
+    exitCode: 10,
+    stderr: "review blocked: blocking findings detected: 2\n"
+  });
+
+  const result = runHandlerExpectFailure("gate blocked exit code", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_GATE: "true"
+  });
+
+  assert(result.status === 10, `gate blocked exit code should be preserved, got ${result.status}`);
+  assert(result.stdout.includes("DiffPal code review found blocking issues at or above the high threshold."), "gate failure should be human-readable");
+  assert(!result.stdout.includes("diffpal exited with code 10"), "gate failure should not fall back to the generic exit code message");
+}
+
+function testNonGateFailureStaysGeneric() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "diffpal-ado-generic-failure-"));
+  const diffpalArgv = path.join(dir, "diffpal-argv");
+  const customDiffPal = path.join(dir, "diffpal");
+  makeFakeDiffPal(customDiffPal, diffpalArgv, {
+    exitCode: 4,
+    stderr: "platform publish failed\n"
+  });
+
+  const result = runHandlerExpectFailure("generic failure", {
+    INPUT_INSTALL: "false",
+    INPUT_DIFFPALPATH: customDiffPal,
+    INPUT_GATE: "true"
+  });
+
+  assert(result.status === 4, `generic failure exit code should be preserved, got ${result.status}`);
+  assert(result.stdout.includes("diffpal exited with code 4"), "non-gate failure should keep the generic task message");
+}
+
 testDefaultInstall();
+testDefaultPinnedVersionIsUsedWhenInputIsUnset();
 testCustomPathSkipsInstall();
 testInstallDisabledUsesPath();
 testDefaultInstructionsFileDirectoryIsIgnored();
@@ -492,4 +557,6 @@ testPrContextComputesMergeBase();
 testExplicitRangeBypassesGitResolution();
 testMissingTargetRefExplainsFetchFailure();
 testExplainPrintsResolvedContext();
+testGateFailureUsesHumanMessageForReviewBlockedExitCode();
+testNonGateFailureStaysGeneric();
 console.log("Azure DevOps task smoke tests passed");
