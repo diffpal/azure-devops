@@ -77,6 +77,9 @@ steps:
 
 When blocking findings are present, the task fails with a human-readable gate
 message and preserves the non-zero DiffPal exit code for pipeline control.
+Transient provider failures, including empty or invalid structured review
+responses after retries, also fail with a human-readable task message while
+preserving DiffPal's exit code.
 
 ### Blocking gate
 
