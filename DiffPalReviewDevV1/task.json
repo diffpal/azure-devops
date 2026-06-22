@@ -10,7 +10,7 @@
   "version": {
     "Major": 1,
     "Minor": 6,
-    "Patch": 10
+    "Patch": 11
   },
   "minimumAgentVersion": "3.224.0",
   "instanceNameFormat": "DiffPal Review Dev",
@@ -28,7 +28,7 @@
       "type": "string",
       "label": "DiffPal version",
       "required": false,
-      "defaultValue": "0.1.31",
+      "defaultValue": "0.1.32",
       "helpMarkDown": "npm version or dist-tag for @diffpal/diffpal."
     },
     {
