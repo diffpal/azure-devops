@@ -25,7 +25,7 @@ function runHandler(name, env) {
       INPUT_BASE: "base-sha",
       INPUT_HEAD: "head-sha",
       INPUT_BLOCKON: "high",
-      INPUT_FEEDBACK: "balanced",
+      INPUT_FEEDBACK: "review",
       SYSTEM_ACCESSTOKEN: "system-token",
       ...env
     },
@@ -47,7 +47,7 @@ function runHandlerExpectFailure(name, env) {
       INPUT_BASE: "base-sha",
       INPUT_HEAD: "head-sha",
       INPUT_BLOCKON: "high",
-      INPUT_FEEDBACK: "balanced",
+      INPUT_FEEDBACK: "review",
       SYSTEM_ACCESSTOKEN: "system-token",
       ...env
     },
@@ -510,7 +510,7 @@ function testExplainPrintsResolvedContext() {
       INPUT_BASE: "",
       INPUT_HEAD: "",
       INPUT_BLOCKON: "high",
-      INPUT_FEEDBACK: "balanced",
+      INPUT_FEEDBACK: "review",
       INPUT_EXPLAIN: "true",
       SYSTEM_ACCESSTOKEN: "secret-token-value",
       SYSTEM_PULLREQUEST_PULLREQUESTID: "123",

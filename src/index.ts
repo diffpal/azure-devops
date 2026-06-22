@@ -478,11 +478,7 @@ async function run(): Promise<void> {
   if (gate) {
     args.push("--gate");
   }
-  const mode = input("mode");
-  addOptional(args, "--mode", mode);
-  if (!mode) {
-    addOptional(args, "--feedback", input("feedback") || "balanced");
-  }
+  addOptional(args, "--feedback", input("feedback") || "review");
   addOptional(args, "--language", input("language"));
   addOptional(args, "--instructions", input("instructions"));
   addOptional(args, "--instructions-file", resolveInstructionsFile(input("instructionsFile")));
