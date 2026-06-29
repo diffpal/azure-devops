@@ -39,7 +39,7 @@ Set `explain: true` to print the resolved PR id, branches, commits, merge-base,
 base/head, and redacted CLI arguments before the review starts.
 
 Set `debug: true` to pass `--debug` to DiffPal and enable provider/runtime
-diagnostics. This is separate from Azure `System.Debug`.
+diagnostics.
 
 With `feedback: review`, DiffPal publishes Azure threads
 for all findings. Blocking findings stay active; non-blocking findings are
