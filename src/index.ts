@@ -25,7 +25,7 @@ type ReviewRange = {
   pullRequest: PullRequestContext;
 };
 
-const DEFAULT_DIFFPAL_VERSION = "0.1.39";
+const DEFAULT_DIFFPAL_VERSION = "0.1.40";
 const TRANSIENT_REVIEW_EXIT_CODE = 3;
 const REVIEW_BLOCKED_EXIT_CODE = 10;
 
@@ -304,12 +304,22 @@ function hasStructuredOutputFailure(output: string): boolean {
     normalized.includes("no json object");
 }
 
+function hasProviderFailure(output: string): boolean {
+  const normalized = output.toLowerCase();
+  return normalized.includes("provider error") ||
+    normalized.includes("provider failed") ||
+    normalized.includes("provider failure");
+}
+
 function diffPalFailureMessage(result: CommandResult, gate: boolean, blockOn: string): string {
   if (gate && isReviewBlockedFailure(result.code)) {
     return `DiffPal code review found blocking issues at or above the ${blockOn} threshold.`;
   }
   if (isTransientReviewFailure(result.code)) {
     const output = `${result.stdout}\n${result.stderr}`;
+    if (hasProviderFailure(output)) {
+      return "DiffPal review could not complete because the provider failed. Rerun the pipeline or check provider availability, auth, quota, and billing.";
+    }
     if (hasStructuredOutputFailure(output)) {
       return "DiffPal review could not complete because the provider returned an empty or invalid structured response after retries. Rerun the pipeline or check provider availability, auth, and quota.";
     }
