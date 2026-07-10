@@ -1,0 +1,24 @@
+name: Bug report
+description: Report a reproducible Azure DevOps extension defect
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal pipeline and logs
+      description: Remove credentials and private source before posting.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Extension and task version
+    validations:
+      required: true
