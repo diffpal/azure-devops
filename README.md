@@ -20,9 +20,9 @@ VSIX packaging, and Marketplace release flow.
 
 The task installs `@diffpal/diffpal` by default and runs `diffpal review ado`.
 Bring the provider recipe you want to use; the Azure review flow stays the same.
-By default it installs `@diffpal/diffpal@0.1.40`, the tested CLI release paired
-with this extension. Set `diffpalVersion` only when you need to override that
-default rollout.
+By default it installs `@diffpal/diffpal@1`, keeping the task on the compatible
+CLI v1 line. Set `diffpalVersion` to an exact v1 release when you need fully
+reproducible CI.
 
 ## Behavior
 
@@ -70,7 +70,7 @@ steps:
   - task: DiffPalReview@1
     displayName: DiffPal review
     inputs:
-      diffpalVersion: 0.1.40
+      diffpalVersion: 1.0.0
       profile: ci
       feedback: review
     env:
@@ -194,7 +194,7 @@ VSIX files are written to `dist/`.
 Set versions before tagging:
 
 ```bash
-task release:set-version VERSION=0.1.42 TASK_VERSION=1.6.18
+task release:set-version VERSION=1.0.0 TASK_VERSION=1.7.0
 ```
 
 Publish uses the `release.yml` workflow and requires `AZURE_DEVOPS_EXT_PAT` in the `azure-devops-marketplace` GitHub Environment.

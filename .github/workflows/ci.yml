@@ -27,6 +27,26 @@ jobs:
       - name: Smoke test task handler
         run: npm run smoke
 
+      - name: Check out DiffPal CLI contract
+        uses: actions/checkout@v6
+        with:
+          repository: diffpal/diffpal
+          ref: develop
+          path: .tmp/diffpal
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: .tmp/diffpal/go.mod
+
+      - name: Build staged DiffPal CLI
+        working-directory: .tmp/diffpal
+        run: go build -o "$RUNNER_TEMP/diffpal" ./cmd/diffpal
+
+      - name: Verify CLI v1 contract
+        env:
+          DIFFPAL_BIN: ${{ runner.temp }}/diffpal
+        run: bash scripts/cli-contract-test.sh
+
       - name: Package production extension
         run: npm run package:prod
 

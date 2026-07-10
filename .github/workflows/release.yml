@@ -130,7 +130,6 @@ jobs:
               --vsix "$path" \
               --auth-type pat \
               --token "$AZURE_DEVOPS_EXT_PAT" \
-              --no-wait-validation \
               --no-prompt
           }
 

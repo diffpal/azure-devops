@@ -25,7 +25,7 @@ type ReviewRange = {
   pullRequest: PullRequestContext;
 };
 
-const DEFAULT_DIFFPAL_VERSION = "0.1.40";
+const DEFAULT_DIFFPAL_VERSION = "1";
 const TRANSIENT_REVIEW_EXIT_CODE = 3;
 const REVIEW_BLOCKED_EXIT_CODE = 10;
 
@@ -429,6 +429,7 @@ async function installDiffPal(version: string): Promise<string> {
     installRoot,
     packageSpec,
     "--omit=dev",
+    "--ignore-scripts",
     "--no-audit",
     "--no-fund"
   ]);

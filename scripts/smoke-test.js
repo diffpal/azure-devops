@@ -155,8 +155,9 @@ function testDefaultPinnedVersionIsUsedWhenInputIsUnset() {
     PATH: `${fakeBin}${path.delimiter}${process.env.PATH || ""}`
   });
 
-  assert(read(npmArgv).includes("@diffpal/diffpal@0.1.40"), "default install did not request the pinned DiffPal version");
-  assert(read(diffpalArgv).includes("review\nado"), "default pinned version did not run diffpal review ado");
+  assert(read(npmArgv).includes("@diffpal/diffpal@1"), "default install did not request CLI major 1");
+  assert(read(npmArgv).includes("--ignore-scripts"), "default install did not disable npm lifecycle scripts");
+  assert(read(diffpalArgv).includes("review\nado"), "default CLI v1 did not run diffpal review ado");
 }
 
 function testDebugInputForwardsDebugFlag() {
